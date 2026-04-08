@@ -10,9 +10,9 @@ export default function Page() {
   const [selection, setSelection] = useState<Selection>({
     countryCode: "BR",
     stateCode: "13",
-    cityName: "São Luís",
-    lat: "-2.52972",
-    lng: "-44.30278",
+    cityName: "",
+    lat: "",
+    lng: "",
   });
 
   if (!isSystemActive) {

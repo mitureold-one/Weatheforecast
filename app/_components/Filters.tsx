@@ -175,7 +175,7 @@ export default function Filters({ selection, onSelectionChange }: FiltersProps) 
                 {states.length === 0 ? (
                   <option value="">{loading ? "CARREGANDO..." : "VAZIO"}</option>
                 ) : (
-                  states.map((s: any) => (
+                  states.map((s: LocationData) => (
                     <option key={s.adminCode1} value={s.adminCode1} className="bg-zinc-900">{s.name}</option>
                   ))
                 )}
@@ -199,7 +199,7 @@ export default function Filters({ selection, onSelectionChange }: FiltersProps) 
                 {cities.length === 0 ? (
                   <option value="">{loading ? "CARREGANDO..." : "VAZIO"}</option>
                 ) : (
-                  cities.map((city: any) => (
+                  cities.map((city: City) => (
                     <option key={city.geonameId} value={city.name} className="bg-zinc-900">{city.name}</option>
                   ))
                 )}

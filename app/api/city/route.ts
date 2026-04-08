@@ -5,6 +5,25 @@ import { LocationData } from "@/app/_object/location-data";
 
 // Rota GET para buscar cidades por país usando a API GeoNames
 export async function GET(req: NextRequest) {
+  const origin = req.headers.get('origin');
+  const seuDominio = process.env.NEXT_PUBLIC_SITE_URL;
+  const apiKey = req.headers.get("x-api-key");
+
+  const serverKey = process.env.INTERNAL_API_KEY;
+
+  console.log("---------------------------------");
+  console.log("CHAVE QUE VEIO DO FRONT:", apiKey);
+  console.log("CHAVE QUE ESTÁ NO SERVER:", serverKey);
+  console.log("---------------------------------");
+
+  if (apiKey !== process.env.INTERNAL_API_KEY) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Se a requisição não vier do seu site, bloqueia
+  if (origin !== seuDominio && process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: "Acesso não autorizado" }, { status: 403 });
+  }
 
   //1° verificamos se a variável de ambiente GEONAMES_USER está configurada. Se não estiver, retornamos um erro 500 indicando que a variável não foi configurada.
   const GEONAMES_USER = process.env.GEONAMES_USER;
@@ -77,7 +96,7 @@ export async function GET(req: NextRequest) {
         if (seen.has(item.geonameId)) return false;
         seen.add(item.geonameId);
         return true;})
-      .map((item: any) => ({
+      .map((item: City) => ({
         geonameId: item.geonameId,
         name: item.name,
         lat: item.lat,
@@ -93,10 +112,10 @@ export async function GET(req: NextRequest) {
     else
     {
       // Retornamos um array de LocationData[] (estados)
-      const states: LocationData[] = geonames.map((item: any) => ({
+      const states: LocationData[] = geonames.map((item: LocationData) => ({
        name: item.name,
-        adminCode1: item.adminCode1,                        // "27"
-        isoCode: item.adminCodes1?.ISO3166_2 ?? "",         // "SP"
+        adminCode1: item.adminCode1,                       
+        isoCode: item. isoCode?? "",         
       }));
       return NextResponse.json(states);
     }
