@@ -6,6 +6,7 @@ import{City} from "@/app/_object/city";
 import { COUNTRIES } from "@/app/_lib/countries";
 import {fetchStates, fetchCities, findCity } from "@/app/_lib/geofilter";
 import { Selection } from "../_object/selection"; 
+import { getGeoData } from "@/app/_lib/actions";
 
 interface FiltersProps {
   selection: Selection;
@@ -22,11 +23,11 @@ export default function Filters({ selection, onSelectionChange }: FiltersProps) 
     async function loadStates() {
       setLoading(true);
       try {
-        const data = await fetchStates(selection.countryCode);
-        setStates(data);
+        const data = await getGeoData(selection.countryCode);
+        setStates(data as LocationData[]);
 
         // Se o estado atual não existe na nova lista, seleciona o primeiro
-        const currentStateExists = data.some(state => state.adminCode1 === selection.stateCode);
+       const currentStateExists = data.some((state: LocationData) => state.adminCode1 === selection.stateCode);
         if (!currentStateExists && data.length > 0) {
           onSelectionChange({
             ...selection,
@@ -59,11 +60,11 @@ export default function Filters({ selection, onSelectionChange }: FiltersProps) 
     async function loadCities() {
       setLoading(true);
       try {
-        const data = await fetchCities(selection.countryCode, selection.stateCode);
-        setCities(data);
+        const data = await getGeoData(selection.countryCode, selection.stateCode);
+        setCities(data as City[]);
 
         // Se a cidade atual não existe na nova lista, seleciona a primeira
-        const currentCityExists = data.some(city => city.name === selection.cityName);
+        const currentCityExists = data.some((city: City) => city.name === selection.cityName);
         if (!currentCityExists && data.length > 0) {
           onSelectionChange({
             ...selection,
