@@ -98,7 +98,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(cities);
       
     } else {
-      const states = geonames.map((item: StateDao) => StateMapper.daoToDto(item));
+      const states = geonames.map((item: StateDao) => {
+      const domain = StateMapper.toDomain(item); 
+      return StateMapper.toDto(domain);         
+    });
       
       // Salva no Cache de Estados
       LocationCache.setStates(country, states);
