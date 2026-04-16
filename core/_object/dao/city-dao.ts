@@ -1,4 +1,4 @@
-export interface City {
+export interface CityDao {
  geonameId: number;
   name: string;
   lat: string;

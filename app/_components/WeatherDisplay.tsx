@@ -1,98 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { WeatherData} from "@/app/_object/weather-data";
-import { Selection } from "@/app/_object/selection";
 import WeatherResume from "@/app/_components/WeatherResume";
 import WeatherWeek from "@/app/_components/WeatherWeek";
 import WeatherTimeline from "./WeatherTimeline";
+import { WeatherDto } from "@/core/_object/dto/weather-dto"; // Seu novo DTO
 
 interface WeatherDisplayProps {
-  selection: Selection;
+  weather: WeatherDto;
+  selection: {
+    city: string;
+    state: string;
+    lat: number;
+    lng: number;
+  };
 }
 
-export default function WeatherDisplay({ selection }: WeatherDisplayProps) {
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  
-
-  useEffect(() => {
-  if (!selection.lat || !selection.lng) return;
-
-  const controller = new AbortController();
-
-  async function fetchWeather() {
-    setLoading(true);
-    setError(null);
-    
-    // Tocar o som de ativação
-    const audio = new Audio("/busca.mp3");
-    audio.volume = 0.4; // Um pouco mais baixo para não assustar
-    
-    // Tenta tocar, mas ignora se o navegador bloquear (user gesture policy)
-    audio.play().catch((e) => console.warn("Áudio bloqueado pelo browser:", e));
-    
-    try {
-      const res = await fetch(
-        `/api/weather?lat=${selection.lat}&lng=${selection.lng}`,
-        { signal: controller.signal }
-      );
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Falha ao buscar clima");
-      }
-
-      const data: WeatherData = await res.json();
-      setWeather(data);
-    } catch (err: any) {
-      if (err.name !== "AbortError") {
-        setError(err.message);
-        // Opcional: tocar um som de erro aqui?
-      }
-    } finally {
-      // Pequeno delay opcional para o loading não "piscar" muito rápido
-      setLoading(false);
-    }
-  }
-
-  fetchWeather();
-
-  return () => {
-    controller.abort();
-  };
-}, [selection.lat, selection.lng]);
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center p-12">
-        <span className="animate-pulse text-gold font-black uppercase tracking-widest">
-          CARREGANDO PREVISÃO...
-        </span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-4 bg-red-950 border-2 border-red-500 text-red-400 text-sm font-bold uppercase">
-        ❌ {error}
-      </div>
-    );
-  }
-
-  if (!weather) return null;
-
+export default function WeatherDisplay({ weather, selection }: WeatherDisplayProps) {
+  // Lógica de processamento das próximas 24h (usando o novo DTO)
   const now = new Date();
+  
+  // Encontra o índice da hora atual no array de tempos
   const hourlyStart = weather.hourly.times.findIndex((t) => new Date(t) >= now);
+  
+  // Se não encontrar (erro de timezone), assume o início
+  const startIndex = hourlyStart === -1 ? 0 : hourlyStart;
+
   const next24h = weather.hourly.times
-    .slice(hourlyStart, hourlyStart + 24)
+    .slice(startIndex, startIndex + 24)
     .map((t, i) => ({
       time: new Date(t),
-      weatherCode: weather.hourly.weatherCode[hourlyStart + i],
-      precip: weather.hourly.precipitationProbability[hourlyStart + i],
+      weatherCode: weather.hourly.weatherCode[startIndex + i],
+      // Ajustamos para os nomes que definimos no DTO/Mapper
+      humidity: weather.hourly.humidity[startIndex + i], 
+      windSpeed: weather.hourly.windSpeed[startIndex + i],
+      precipProb: weather.hourly.precipitationProbability[startIndex + i],
     }));
 
   return (
@@ -102,6 +43,7 @@ export default function WeatherDisplay({ selection }: WeatherDisplayProps) {
       <section className="relative group">
         <div className="absolute -inset-0.5 bg-gradient-to-r from-magenta-500 to-gold opacity-20 group-hover:opacity-40 transition duration-1000"></div>
         <div className="relative bg-black">
+          {/* O WeatherResume usará weather.current */}
           <WeatherResume weather={weather} selection={selection} />
         </div>
       </section>
@@ -112,7 +54,8 @@ export default function WeatherDisplay({ selection }: WeatherDisplayProps) {
           <span className="w-2 h-2 bg-teal-500 rounded-full animate-pulse"></span>
           Live Chronos Data
         </h3>
-        <WeatherTimeline weather={weather} selection={selection} />
+        {/* Passamos o next24h processado ou o weather completo */}
+        <WeatherTimeline weather={weather} /> 
       </section>
 
       {/* 3. MÓDULO DE PREVISÃO ESTENDIDA (WEEK) */}
@@ -122,7 +65,8 @@ export default function WeatherDisplay({ selection }: WeatherDisplayProps) {
               <span className="bg-white text-black px-2 py-0.5 skew-x-[-15deg]">FUTURE</span>
               PROJECTIONS
             </h3>
-            <WeatherWeek weather={weather} selection={selection} />
+            {/* O WeatherWeek usará weather.daily */}
+            <WeatherWeek weather={weather} />
          </div>
       </section>
 

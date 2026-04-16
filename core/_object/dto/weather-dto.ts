@@ -1,4 +1,4 @@
-export interface WeatherData {
+export interface WeatherDto {
   latitude: number;
   longitude: number;
   elevation: number;
@@ -14,7 +14,7 @@ export interface WeatherData {
   };
   daily: {
     dates: string[];
-    sunrise: string[];  // era number[]
+    sunrise: string[];  
     sunset: string[]; 
     tempMax: number[];
     tempMin: number[];

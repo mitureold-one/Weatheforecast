@@ -1,5 +1,7 @@
+// app/api/weather/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { fetchWeatherApi } from "openmeteo";
+import { WeatherMapper } from "@/core/_object/mapper/weather-mapper";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -10,7 +12,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Parâmetros lat e lng são obrigatórios" }, { status: 400 });
   }
 
-  // 1. CONFIGURAÇÃO DOS PARÂMETROS (Ordem aqui define o variables(x))
   const params = {
     latitude: parseFloat(lat),
     longitude: parseFloat(lng),
@@ -18,8 +19,8 @@ export async function GET(req: NextRequest) {
     daily: ["sunrise", "sunset", "temperature_2m_max", "temperature_2m_min", "rain_sum", "uv_index_max", "wind_speed_10m_max", "precipitation_probability_max", "weather_code"],
     hourly: ["relative_humidity_2m", "precipitation_probability", "visibility", "wind_speed_10m", "weather_code"],
     timezone: "auto",
-    past_days: 7,
     forecast_days: 7,
+    past_days: 7,
   };
 
   try {
@@ -27,12 +28,10 @@ export async function GET(req: NextRequest) {
     const response = responses[0];
     const utcOffsetSeconds = response.utcOffsetSeconds();
 
-    // Referências dos blocos
     const current = response.current()!;
     const hourly = response.hourly()!;
     const daily = response.daily()!;
 
-    // 2. PROCESSAMENTO DE TEMPO (Necessário para as datas e horas)
     const hourlyLength = (Number(hourly.timeEnd()) - Number(hourly.time())) / hourly.interval();
     const hourlyTimes = Array.from({ length: hourlyLength }, (_, i) =>
       new Date((Number(hourly.time()) + i * hourly.interval() + utcOffsetSeconds) * 1000).toISOString()
@@ -43,8 +42,8 @@ export async function GET(req: NextRequest) {
       new Date((Number(daily.time()) + i * daily.interval() + utcOffsetSeconds) * 1000).toISOString().split("T")[0]
     );
 
-    // 3. MONTAGEM DO OBJETO FINAL (Mapeamento rigoroso dos índices)
-    const weatherData = {
+    // Este objeto funciona como o nosso DAO interno agora
+    const rawData = {
       latitude: response.latitude(),
       longitude: response.longitude(),
       elevation: response.elevation(),
@@ -55,8 +54,8 @@ export async function GET(req: NextRequest) {
         surfacePressure: current.variables(3)!.value(),
         isDay: current.variables(4)!.value(),
         weatherCode: current.variables(5)!.value(),
-        windSpeed: current.variables(6)!.value(),    // <--- MAPEADO
-        precipitation: current.variables(7)!.value(), // <--- MAPEADO
+        windSpeed: current.variables(6)!.value(),
+        precipitation: current.variables(7)!.value(),
       },
       daily: {
         dates: dailyDates,
@@ -84,9 +83,12 @@ export async function GET(req: NextRequest) {
       },
     };
 
-    return NextResponse.json(weatherData);
+    // --- APLICAÇÃO DO PADRÃO MAPPER ---
+    const dto = WeatherMapper.mapToDto(rawData);
+
+    return NextResponse.json(dto);
   } catch (error) {
-  console.error("Erro detalhado:", error);
-  return NextResponse.json({ error: "Falha ao conectar com a API Open-Meteo" }, { status: 500 });
-}
+    console.error("Erro detalhado:", error);
+    return NextResponse.json({ error: "Falha ao processar clima" }, { status: 500 });
+  }
 }

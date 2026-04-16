@@ -1,6 +1,6 @@
-import { LocationData } from "@/app/_object/location-data";
+import { CountryDao } from "../../_object/dao/country-dao";
 
-export const COUNTRIES: LocationData[] = [
+export const COUNTRIES: CountryDao[] = [
   { name: "Afeganistão", isoCode: "AF", adminCode1: "" },
   { name: "África do Sul", isoCode: "ZA", adminCode1: "" },
   { name: "Albânia", isoCode: "AL", adminCode1: "" },
