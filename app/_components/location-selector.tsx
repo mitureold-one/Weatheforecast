@@ -67,11 +67,31 @@ export function LocationSelector({ initialCountries }: Props) {
       await fetchCities("BR", "13");
 
       setSelectedCity("São Luís");
-      fetchWeather(-2.5307, -44.3068);
+      fetchWeather(-2.5307, -44.3068);    
     };
 
     initializeDefaultLocation();
   }, []);
+
+  useEffect(() => {
+  // Se terminou de carregar, temos cidades, mas a selecionada sumiu ou está vazia
+  if (!loadingLocation && cities.length > 0) {
+    const cityExists = cities.find(c => c.name === selectedCity);
+
+    if (!cityExists) {
+      // Ordenamos para pegar sempre a primeira alfabética
+      const sorted = [...cities].sort((a, b) => a.name.localeCompare(b.name));
+      const firstCity = sorted[0];
+      
+      onCityChange(firstCity.name);
+    }
+  } 
+  
+  // Se o estado mudou e não tem cidades (Ex: um estado recém-clicado)
+  if (!loadingLocation && cities.length === 0 && selectedState !== "") {
+    resetWeather();
+  }
+}, [cities, loadingLocation]);
 
   return (
     <div className="flex flex-col gap-8 w-full">

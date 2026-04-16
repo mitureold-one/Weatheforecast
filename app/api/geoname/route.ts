@@ -12,15 +12,12 @@ export async function GET(req: NextRequest) {
   const apiKey = req.headers.get("x-api-key");
 
   // --- Segurança ---
-  // Nota: Verifique se INTERNAL_API_KEY está definida na Vercel
   if (apiKey !== process.env.INTERNAL_API_KEY) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   if (process.env.NODE_ENV === 'production') {
     const normalizedOrigin = origin?.replace(/\/$/, "")
-  // Se não houver origin (comum em reqs do mesmo site) 
-    // ou se o origin não bater, verificamos o Host
     const isSameHost = host && seuDominio?.includes(host);
 
     if (normalizedOrigin !== seuDominio && !isSameHost) {
