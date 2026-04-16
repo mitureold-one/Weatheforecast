@@ -26,22 +26,6 @@ export function useLocation() {
       
       const data = await res.json();
 
-      // --- AGORA SIM, LOGS DE DEBUG NO LUGAR CERTO ---
-      console.log("--- DEBUG REQUISIÇÃO ESTADOS ---");
-      console.log("Status da Resposta:", res.status);
-      console.log("Dados que chegaram:", data);
-      
-      if (Array.isArray(data) && data.length > 0) {
-        console.log("Primeiro item mapeado:", {
-          nome: data[0].name,
-          alas: data[0].alas, // Verifique se isso aqui é "" ou undefined
-          id: data[0].id
-        });
-      } else {
-        console.warn("Aviso: Data não é um array ou está vazio:", data);
-      }
-      // ----------------------------------------------
-
       setStates(data);
     } catch (err) {
       console.error("Erro no catch:", err);
@@ -66,8 +50,6 @@ export function useLocation() {
       });
       if (!res.ok) throw new Error("Erro ao carregar cidades");
       const data = await res.json();
-      
-      console.log("--- DEBUG CIDADES ---", data);
       
       setCities(data);
     } catch (err) {
