@@ -3,7 +3,7 @@ import { CityMapper } from "@/core/_object/mapper/city-mapper";
 import { CityDao } from "@/core/_object/dao/city-dao";
 import { StateDao } from "@/core/_object/dao/state-dao";
 import { StateMapper } from "@/core/_object/mapper/state-mapper";
-import { LocationCache } from "@/core/cache/location-cache"; // Importando o cache
+import { LocationCache } from "@/core/cache/location-cache";
 
 export async function GET(req: NextRequest) {
   const origin = req.headers.get('origin');
@@ -11,11 +11,13 @@ export async function GET(req: NextRequest) {
   const apiKey = req.headers.get("x-api-key");
 
   // --- Segurança ---
+  // Nota: Verifique se INTERNAL_API_KEY está definida na Vercel
   if (apiKey !== process.env.INTERNAL_API_KEY) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (origin !== seuDominio && process.env.NODE_ENV === 'production') {
+  // Em produção, valida se a chamada vem do seu próprio site
+  if (process.env.NODE_ENV === 'production' && origin !== seuDominio) {
     return NextResponse.json({ error: "Acesso não autorizado" }, { status: 403 });
   }
 
@@ -23,7 +25,7 @@ export async function GET(req: NextRequest) {
   const GEONAMES_USER = process.env.GEONAMES_USER;
   if (!GEONAMES_USER) {
     return NextResponse.json(
-      { error: "Variável GEONAMES_USER não configurada" },
+      { error: "Variável GEONAMES_USER não configurada no servidor" },
       { status: 500 }
     );
   }
@@ -40,51 +42,57 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // --- 1. VERIFICAÇÃO DE CACHE (Antes de qualquer fetch) ---
+  // --- 1. VERIFICAÇÃO DE CACHE ---
   if (adminCode) {
     const cachedCities = LocationCache.getCities(country, adminCode);
-    if (cachedCities) {
-      console.log(`[Cache Hit] Cidades: ${country}-${adminCode}`);
-      return NextResponse.json(cachedCities);
-    }
+    if (cachedCities) return NextResponse.json(cachedCities);
   } else {
     const cachedStates = LocationCache.getStates(country);
-    if (cachedStates) {
-      console.log(`[Cache Hit] Estados: ${country}`);
-      return NextResponse.json(cachedStates);
-    }
+    if (cachedStates) return NextResponse.json(cachedStates);
   }
 
-  // --- 2. CONSTRUÇÃO DA URL ---
+  // --- 2. CONSTRUÇÃO DA URL (USANDO HTTPS SECURE) ---
+  // Mudamos para secure.geonames.org para evitar erros de TLS/SSL 403
+  const baseUrl = "https://secure.geonames.org/searchJSON";
+  
   const url = adminCode 
-    ? `http://api.geonames.org/searchJSON?country=${country}&adminCode1=${adminCode}&featureClass=P&cities=cities1000&orderby=name&maxRows=1000&username=${GEONAMES_USER}`
-    : `http://api.geonames.org/searchJSON?country=${country}&featureCode=ADM1&orderby=name&username=${GEONAMES_USER}`;
+    ? `${baseUrl}?country=${country}&adminCode1=${adminCode}&featureClass=P&cities=cities1000&orderby=name&maxRows=1000&username=${GEONAMES_USER}`
+    : `${baseUrl}?country=${country}&featureCode=ADM1&orderby=name&username=${GEONAMES_USER}`;
 
   try {
-    const res = await fetch(url, { next: { revalidate: 86400 } });
+    const res = await fetch(url, { 
+      next: { revalidate: 86400 },
+      headers: {
+        // User-Agent é essencial para evitar bloqueios 403 em servidores Cloud
+        'User-Agent': 'ChronosWeather/1.0 (contact@yourdomain.com)',
+        'Accept': 'application/json'
+      }
+    });
 
     if (!res.ok) {
       return NextResponse.json(
-        { error: `GeoNames retornou status ${res.status}` },
+        { error: `GeoNames Uplink Error: ${res.status}` },
         { status: res.status }
       );
     }
 
     const data = await res.json();
 
+    // O GeoNames retorna 200 OK mesmo com erro de conta/créditos, 
+    // o erro vem dentro do body.status
     if (data.status) {
+      console.error("GeoNames API Status Error:", data.status.message);
       return NextResponse.json(
-        { error: `Erro GeoNames: ${data.status.message}` },
+        { error: `GeoNames: ${data.status.message}` },
         { status: 401 }
       );
     }
 
     const geonames = data.geonames || [];
 
-    // --- 3. PROCESSAMENTO E ALIMENTAÇÃO DO CACHE ---
+    // --- 3. PROCESSAMENTO ---
     if (adminCode) {
       const seen = new Set<number>();
-      
       const cities = geonames
         .filter((item: CityDao) => {
           if (seen.has(item.geonameId)) return false;
@@ -93,25 +101,23 @@ export async function GET(req: NextRequest) {
         })
         .map((item: CityDao) => CityMapper.toDomain(item)); 
 
-      // Salva no Cache de Cidades
       LocationCache.setCities(country, adminCode, cities);
       return NextResponse.json(cities);
       
     } else {
       const states = geonames.map((item: StateDao) => {
-      const domain = StateMapper.toDomain(item); 
-      return StateMapper.toDto(domain);         
-    });
+        const domain = StateMapper.toDomain(item); 
+        return StateMapper.toDto(domain);         
+      });
       
-      // Salva no Cache de Estados
       LocationCache.setStates(country, states);
       return NextResponse.json(states);
     }
 
   } catch (error) {
-    console.error("Erro na rota GeoNames:", error);
+    console.error("Erro crítico na rota GeoNames:", error);
     return NextResponse.json(
-      { error: "Falha ao conectar com a API GeoNames" },
+      { error: "Falha na conexão de satélite com GeoNames" },
       { status: 500 }
     );
   }
