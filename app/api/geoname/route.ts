@@ -7,7 +7,7 @@ import { LocationCache } from "@/core/cache/location-cache";
 
 export async function GET(req: NextRequest) {
   const origin = req.headers.get('origin');
-  // Normalizamos a URL do domínio removendo a barra final, se existir
+  const host = req.headers.get('host');
   const seuDominio = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
   const apiKey = req.headers.get("x-api-key");
 
@@ -17,9 +17,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Em produção, valida se a chamada vem do seu próprio site
-  if (process.env.NODE_ENV === 'production' && origin !== seuDominio) {
-    return NextResponse.json({ error: "Acesso não autorizado" }, { status: 403 });
+  if (process.env.NODE_ENV === 'production') {
+    const normalizedOrigin = origin?.replace(/\/$/, "")
+  // Se não houver origin (comum em reqs do mesmo site) 
+    // ou se o origin não bater, verificamos o Host
+    const isSameHost = host && seuDominio?.includes(host);
+
+    if (normalizedOrigin !== seuDominio && !isSameHost) {
+      console.error(`Bloqueio 403 - Origin: ${normalizedOrigin}, Host: ${host}`);
+      return NextResponse.json({ 
+        error: "Acesso não autorizado",
+        debug: { origin: normalizedOrigin, expected: seuDominio } 
+      }, { status: 403 });
+    }
   }
 
   // --- Validação de Configuração ---
