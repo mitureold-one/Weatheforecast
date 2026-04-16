@@ -7,7 +7,8 @@ import { LocationCache } from "@/core/cache/location-cache";
 
 export async function GET(req: NextRequest) {
   const origin = req.headers.get('origin');
-  const seuDominio = process.env.NEXT_PUBLIC_SITE_URL;
+  // Normalizamos a URL do domínio removendo a barra final, se existir
+  const seuDominio = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
   const apiKey = req.headers.get("x-api-key");
 
   // --- Segurança ---
